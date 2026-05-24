@@ -1,0 +1,32 @@
+name: Build RevivalMod
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+
+    - name: Restore Packages
+      run: nuget restore RevivalMod.sln
+
+    - name: Build Solution
+      run: msbuild RevivalMod.sln /p:Configuration=Release
+
+    - name: Upload DLL
+      uses: actions/upload-artifact@v4
+      with:
+        name: RevivalMod-Build
+        path: |
+          **/bin/Release/*.dll
