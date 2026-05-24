@@ -340,40 +340,81 @@ namespace RevivalMod.Features
         /// <summary>
         /// Attempts to perform revival of player by a teammate
         /// </summary>
-        public static bool TryPerformRevivalByTeammate(string playerId)
+        
+public static bool TryPerformRevivalByTeammate(string playerId)
+{
+    try
+    {
+        if (Singleton<GameWorld>.Instance == null)
         {
-            if (playerId != Singleton<GameWorld>.Instance.MainPlayer.ProfileId)
-                return false;
+            Plugin.LogSource.LogError("GameWorld instance is null");
+            return false;
+        }
 
-            Player player = Singleton<GameWorld>.Instance.MainPlayer;
+        Player targetPlayer = null;
 
-            try
+        // 查找所有玩家
+        foreach (Player p in Singleton<GameWorld>.Instance.AllPlayers)
+        {
+            if (p == null)
+                continue;
+
+            if (p.ProfileId == playerId)
             {
-                // Apply revival effects
-                ApplyRevivalEffects(player);
+                targetPlayer = p;
+                break;
+            }
+        }
 
-                // Apply invulnerability
-                StartInvulnerability(player);
+        if (targetPlayer == null)
+        {
+            Plugin.LogSource.LogError($"Could not find player with id {playerId}");
+            return false;
+        }
 
-                // Reset critical state
-                _playerList[playerId].IsCritical = false;
+        Plugin.LogSource.LogInfo($"Reviving player {playerId}");
 
-                // Set last revival time
-                _playerList[playerId].LastRevivalTimesByPlayer =
-                    (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+        // 应用复活效果
+        ApplyRevivalEffects(targetPlayer);
 
+        // 开启无敌时间
+        StartInvulnerability(targetPlayer);
 
-                // Show successful revival notification
-                NotificationManagerClass.DisplayMessageNotification(
-                    "Defibrillator used successfully! You are temporarily invulnerable but limited in movement.",
-                    ENotificationDurationType.Long,
-                    ENotificationIconType.Default,
-                    Color.green);
-                if (criticalStateMainTimer is not null)
-                {
-                    criticalStateMainTimer.StopTimer();
-                    criticalStateMainTimer = null;
-                }
+        // 取消濒死状态
+        _playerList[playerId].IsCritical = false;
+
+        // 设置冷却时间
+        _playerList[playerId].LastRevivalTimesByPlayer =
+            (long)(DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds;
+
+        // 本地玩家才显示 UI
+        if (targetPlayer.IsYourPlayer)
+        {
+            NotificationManagerClass.DisplayMessageNotification(
+                "Your teammate revived you!",
+                ENotificationDurationType.Long,
+                ENotificationIconType.Default,
+                Color.green);
+
+            if (criticalStateMainTimer != null)
+            {
+                criticalStateMainTimer.StopTimer();
+                criticalStateMainTimer = null;
+            }
+        }
+
+        Plugin.LogSource.LogInfo($"Team revival performed for player {playerId}");
+
+        return true;
+    }
+    catch (Exception ex)
+    {
+        Plugin.LogSource.LogError($"Error in teammate revival: {ex}");
+
+        return false;
+    }
+}
+
 
                 Plugin.LogSource.LogInfo($"Team revival performed for player {playerId}");
                 
